@@ -15,52 +15,26 @@ export const getCardColor = (name = '') => {
   return CARD_COLORS[charCode % CARD_COLORS.length];
 };
 
-const DEFAULT_DEMO_CARDS = [
-  {
-    id: 'demo_costco',
-    name: 'Costco Wholesale',
-    codeNumber: '719283746102',
-    image: null,
-    barcodeType: 'CODE128',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    views: 12,
-    isDemo: true
-  },
-  {
-    id: 'demo_target',
-    name: 'Target Circle',
-    codeNumber: '992018274631',
-    image: null,
-    barcodeType: 'CODE128',
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    views: 8,
-    isDemo: true
-  },
-  {
-    id: 'demo_cvs',
-    name: 'CVS ExtraCare',
-    codeNumber: '441098273615',
-    image: null,
-    barcodeType: 'CODE128',
-    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    views: 15,
-    isDemo: true
-  }
-];
+const DEFAULT_DEMO_CARDS = [];
 
 export const loadCards = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) {
-      // Save initial demo cards if empty
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_CARDS));
-      return DEFAULT_DEMO_CARDS;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : DEFAULT_DEMO_CARDS;
+    if (!Array.isArray(parsed)) return [];
+    // Filter out legacy demo/fake cards if present
+    const cleaned = parsed.filter(card => !card.isDemo && !card.id?.startsWith('demo_'));
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (err) {
     console.error('Error loading cards from localStorage:', err);
-    return DEFAULT_DEMO_CARDS;
+    return [];
   }
 };
 
