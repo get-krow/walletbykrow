@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-krow-purple: #5B13EC;
+  --color-krow-purple-hover: #4C0FD0;
+  --color-krow-purple-light: #7C3AED;
+  --color-krow-purple-tint: #F5F0FF;
+  --color-krow-dark: #0F172A;
+  --color-krow-muted: #64748B;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --shadow-liquid-glass: 0 20px 40px -15px rgba(91, 19, 236, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.6) inset, 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  --shadow-card-glow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 12px 35px rgba(91, 19, 236, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-scan-modal: 0 25px 60px -15px rgba(0, 0, 0, 0.3);
+}
+
+@layer base {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #F8FAFC;
+    color: #0F172A;
+    overflow-x: hidden;
+  }
+}
+
+/* Glassmorphism Liquid Glass Nav */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 
+    0 20px 40px -15px rgba(91, 19, 236, 0.15),
+    0 1px 2px 0 rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.liquid-glass-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Animations */
+.animate-fadeIn {
+  animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hide scrollbar for sort pills */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area inset helper for iOS notch & home indicator */
+.pb-safe-bottom {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
