@@ -3,11 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "author": "thekangprotocol",
-  "homepage": "https://github.com/thekangprotocol/walletbykrow",
+  "author": "get-krow",
+  "homepage": "https://github.com/get-krow/walletbykrow",
   "repository": {
     "type": "git",
-    "url": "https://github.com/thekangprotocol/walletbykrow.git"
+    "url": "https://github.com/get-krow/walletbykrow.git"
   },
   "scripts": {
     "dev": "vite",
