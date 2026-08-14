@@ -1,16 +1,34 @@
-# React + Vite
+# Wallet by Krow 💳
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **Membership Card Saver & Barcode Vault** by [get-krow/walletbykrow](https://github.com/get-krow/walletbykrow)
 
-Currently, two official plugins are available:
+A fast, phone-first web app to store, search, and display physical membership cards and barcode numbers seamlessly.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Features
 
-## React Compiler
+- **Liquid Glass Navigation Bar**: Mobile-first responsive UI.
+- **Barcode & QR Generation**: Automatic barcode rendering using `jsbarcode` for scanning at checkout.
+- **Local Storage Vault**: Persists membership cards securely on client-side storage.
+- **Search & Filtering**: Quick lookup by card name or membership ID.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Built With
 
-## Expanding the Oxlint configuration
+- **React 19** + **Vite**
+- **Tailwind CSS**
+- **Lucide React Icons**
+- **JSBarcode** & **Canvas Confetti**
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## 💻 Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+Created & maintained by [@get-krow](https://github.com/get-krow).

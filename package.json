@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "author": "get-krow",
+  "homepage": "https://github.com/get-krow/walletbykrow",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/get-krow/walletbykrow.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
