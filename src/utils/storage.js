@@ -73,3 +73,15 @@ export const deleteCard = (cardId) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   return filtered;
 };
+
+export const updateCardFormat = (cardId, format) => {
+  const cards = loadCards();
+  const updatedCards = cards.map(c => {
+    if (c.id === cardId) {
+      return { ...c, barcodeType: format };
+    }
+    return c;
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCards));
+  return updatedCards;
+};

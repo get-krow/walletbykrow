@@ -11,8 +11,8 @@ export const SearchBar = ({ value, onChange, onClear }) => {
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search cards (e.g. Costco, Target)..."
-        className="w-full pl-11 pr-11 py-3.5 bg-white text-slate-900 placeholder-slate-400 font-medium text-base rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-krow-purple/30 focus:border-krow-purple transition-all"
+        placeholder="Search cards by store name..."
+        className="w-full pl-11 pr-11 py-3.5 bg-white text-slate-900 placeholder-slate-400 font-medium text-base rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6344F5]/30 focus:border-[#6344F5] transition-all"
         autoCapitalize="off"
         autoCorrect="off"
       />

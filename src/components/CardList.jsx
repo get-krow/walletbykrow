@@ -7,7 +7,7 @@ export const CardList = ({ cards, onSelectCard, onOpenAddModal, searchQuery }) =
   if (cards.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border border-slate-200/80 shadow-sm my-4">
-        <div className="w-16 h-16 rounded-full bg-krow-purple-tint flex items-center justify-center text-krow-purple mb-4 shadow-inner">
+        <div className="w-16 h-16 rounded-2xl bg-[#6344F5]/10 flex items-center justify-center text-[#6344F5] mb-4 shadow-inner">
           <CreditCard className="w-8 h-8" />
         </div>
         {searchQuery ? (
@@ -25,7 +25,7 @@ export const CardList = ({ cards, onSelectCard, onOpenAddModal, searchQuery }) =
             </p>
             <button
               onClick={onOpenAddModal}
-              className="mt-5 flex items-center gap-2 px-5 py-3 bg-krow-purple hover:bg-krow-purple-hover text-white font-bold text-sm rounded-2xl shadow-lg shadow-krow-purple/30 active:scale-95 transition-all"
+              className="mt-5 flex items-center gap-2 px-5 py-3 bg-[#6344F5] hover:bg-[#5233E0] text-white font-bold text-sm rounded-2xl shadow-lg shadow-[#6344F5]/25 active:scale-95 transition-all"
             >
               <PlusCircle className="w-4 h-4" />
               Add Your First Card
@@ -60,12 +60,12 @@ export const CardList = ({ cards, onSelectCard, onOpenAddModal, searchQuery }) =
             <div className="flex items-center justify-between gap-3 pl-1">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900 truncate tracking-tight group-hover:text-krow-purple transition-colors">
+                  <h3 className="text-base font-bold text-slate-900 truncate tracking-tight group-hover:text-[#6344F5] transition-colors">
                     {card.name}
                   </h3>
                   {card.views > 0 && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      <Eye className="w-3 h-3 text-krow-purple" />
+                      <Eye className="w-3 h-3 text-[#6344F5]" />
                       {card.views}
                     </span>
                   )}
@@ -91,13 +91,14 @@ export const CardList = ({ cards, onSelectCard, onOpenAddModal, searchQuery }) =
                     codeNumber={card.codeNumber}
                     image={card.image}
                     name={card.name}
+                    barcodeType={card.barcodeType || 'AUTO'}
                     isLarge={false}
                   />
                 </div>
               </div>
 
               {/* Tap arrow button */}
-              <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-50 group-hover:bg-krow-purple-tint text-slate-400 group-hover:text-krow-purple transition-colors">
+              <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-50 group-hover:bg-[#6344F5]/10 text-slate-400 group-hover:text-[#6344F5] transition-colors">
                 <ChevronRight className="w-5 h-5" />
               </div>
             </div>

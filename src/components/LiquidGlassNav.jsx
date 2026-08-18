@@ -10,7 +10,7 @@ export const LiquidGlassNav = ({ activeTab, onTabChange, onOpenAddModal }) => {
           onClick={() => onTabChange('cards')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold text-xs transition-all active:scale-95 ${
             activeTab === 'cards'
-              ? 'bg-krow-purple text-white shadow-md shadow-krow-purple/30 ring-2 ring-krow-purple/20'
+              ? 'bg-[#6344F5] text-white shadow-md shadow-[#6344F5]/30 ring-2 ring-[#6344F5]/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
           }`}
         >
@@ -26,7 +26,7 @@ export const LiquidGlassNav = ({ activeTab, onTabChange, onOpenAddModal }) => {
           }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold text-xs transition-all active:scale-95 ${
             activeTab === 'add'
-              ? 'bg-krow-purple text-white shadow-md shadow-krow-purple/30 ring-2 ring-krow-purple/20'
+              ? 'bg-[#6344F5] text-white shadow-md shadow-[#6344F5]/30 ring-2 ring-[#6344F5]/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
           }`}
         >

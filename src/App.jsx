@@ -6,7 +6,7 @@ import { CardList } from './components/CardList';
 import { BarcodeModal } from './components/BarcodeModal';
 import { AddCardModal } from './components/AddCardModal';
 import { LiquidGlassNav } from './components/LiquidGlassNav';
-import { loadCards, saveCard, incrementCardView, deleteCard } from './utils/storage';
+import { loadCards, saveCard, incrementCardView, deleteCard, updateCardFormat } from './utils/storage';
 
 export function App() {
   const [cards, setCards] = useState([]);
@@ -82,6 +82,15 @@ export function App() {
     setSelectedCard(null);
   };
 
+  // Handle updating barcode format
+  const handleUpdateCardFormat = (cardId, format) => {
+    const updated = updateCardFormat(cardId, format);
+    setCards(updated);
+    if (selectedCard && selectedCard.id === cardId) {
+      setSelectedCard(prev => ({ ...prev, barcodeType: format }));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* Top App Header */}
@@ -121,6 +130,7 @@ export function App() {
           card={selectedCard}
           onClose={() => setSelectedCard(null)}
           onDeleteCard={handleDeleteCard}
+          onUpdateCardFormat={handleUpdateCardFormat}
         />
       )}
 
