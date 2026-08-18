@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader, BarcodeFormat } from '@zxing/library';
-import { X, Camera, SwitchCamera, AlertCircle, Sparkles, CheckCircle } from 'lucide-react';
+import { X, Camera, SwitchCamera, AlertCircle, Sparkles, CheckCircle, RefreshCw } from 'lucide-react';
 
-// Map ZXing BarcodeFormat enum / strings to our app format IDs
 const mapZXingFormatToAppFormat = (formatId) => {
   if (formatId === BarcodeFormat.UPC_A || formatId === 14 || formatId === 'upc_a') return 'UPC';
   if (formatId === BarcodeFormat.EAN_13 || formatId === 6 || formatId === 'ean_13') return 'EAN13';
@@ -15,150 +14,144 @@ const mapZXingFormatToAppFormat = (formatId) => {
 
 export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
   const videoRef = useRef(null);
+  const mediaStreamRef = useRef(null);
   const codeReaderRef = useRef(null);
-  const [videoDevices, setVideoDevices] = useState([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+
+  const [facingMode, setFacingMode] = useState('environment'); // 'environment' or 'user'
   const [errorMessage, setErrorMessage] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [scannedResult, setScannedResult] = useState(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const stopCameraStream = () => {
+    if (codeReaderRef.current) {
+      try {
+        codeReaderRef.current.reset();
+      } catch (e) {}
+    }
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (e) {}
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
 
-    let isMounted = true;
-    const reader = new BrowserMultiFormatReader();
-    codeReaderRef.current = reader;
-
+  const startCamera = async () => {
+    stopCameraStream();
     setErrorMessage('');
     setScannedResult(null);
 
-    // List camera devices
-    reader
-      .listVideoInputDevices()
-      .then((devices) => {
-        if (!isMounted) return;
-        setVideoDevices(devices);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access is not supported by your browser or requires HTTPS.');
+      }
 
-        // Pick back camera if available, or first device
-        const backCam = devices.find(
-          (d) =>
-            d.label.toLowerCase().includes('back') ||
-            d.label.toLowerCase().includes('rear') ||
-            d.label.toLowerCase().includes('environment')
-        );
-        const targetId = backCam ? backCam.deviceId : devices[0]?.deviceId || null;
-        setSelectedDeviceId(targetId);
-      })
-      .catch((err) => {
-        console.warn('Error enumerating cameras:', err);
-        if (isMounted) {
-          setErrorMessage('Camera access required. Please allow camera permissions in your browser settings.');
-        }
+      // Request stream directly from browser
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
       });
 
-    return () => {
-      isMounted = false;
-      if (codeReaderRef.current) {
-        try {
-          codeReaderRef.current.reset();
-        } catch (e) {
-          // ignore cleanup errors
-        }
-      }
-    };
-  }, [isOpen]);
+      mediaStreamRef.current = stream;
 
-  // Start video scanning when deviceId and video element ready
-  useEffect(() => {
-    if (!isOpen || !selectedDeviceId || !videoRef.current || !codeReaderRef.current) return;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setIsCameraActive(true);
 
-    let isSubscribed = true;
-    setIsScanning(true);
+        // Start ZXing decoding from the active video element
+        const reader = new BrowserMultiFormatReader();
+        codeReaderRef.current = reader;
 
-    codeReaderRef.current.decodeFromVideoDevice(
-      selectedDeviceId,
-      videoRef.current,
-      (result, err) => {
-        if (!isSubscribed) return;
+        reader.decodeFromVideoElement(videoRef.current, (result, err) => {
+          if (result) {
+            const text = result.getText();
+            const formatEnum = result.getBarcodeFormat();
+            const appFormat = mapZXingFormatToAppFormat(formatEnum);
 
-        if (result) {
-          const text = result.getText();
-          const formatEnum = result.getBarcodeFormat();
-          const appFormat = mapZXingFormatToAppFormat(formatEnum);
-
-          // Haptic vibration feedback
-          try {
-            if (navigator.vibrate) {
-              navigator.vibrate([100, 50, 100]);
-            }
-          } catch (e) {
-            // ignore
-          }
-
-          setScannedResult({ text, format: appFormat });
-          setIsScanning(false);
-
-          // Stop scanner immediately upon success
-          if (codeReaderRef.current) {
+            // Haptic vibration feedback
             try {
-              codeReaderRef.current.reset();
+              if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+              }
             } catch (e) {}
-          }
 
-          // Delay slightly so user sees checkmark animation
-          setTimeout(() => {
-            if (isSubscribed) {
+            setScannedResult({ text, format: appFormat });
+
+            // Stop scanner immediately on success
+            stopCameraStream();
+
+            // Return result after short animation
+            setTimeout(() => {
               onScanSuccess({ codeNumber: text, barcodeType: appFormat });
               onClose();
-            }
-          }, 600);
-        }
+            }, 650);
+          }
+        });
       }
-    );
+    } catch (err) {
+      console.warn('Camera launch error:', err);
+      let msg = 'Could not access camera.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = 'Camera permission denied. Please allow camera access in your browser settings to scan live.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        msg = 'No camera found on this device.';
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setErrorMessage(msg);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      startCamera();
+    } else {
+      stopCameraStream();
+    }
 
     return () => {
-      isSubscribed = false;
-      if (codeReaderRef.current) {
-        try {
-          codeReaderRef.current.reset();
-        } catch (e) {}
-      }
+      stopCameraStream();
     };
-  }, [isOpen, selectedDeviceId, onClose, onScanSuccess]);
+  }, [isOpen, facingMode]);
 
-  const handleSwitchCamera = () => {
-    if (videoDevices.length <= 1) return;
-    const currentIndex = videoDevices.findIndex((d) => d.deviceId === selectedDeviceId);
-    const nextIndex = (currentIndex + 1) % videoDevices.length;
-    setSelectedDeviceId(videoDevices[nextIndex].deviceId);
+  const handleToggleFacingMode = () => {
+    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white animate-fadeIn">
-      {/* Top Header */}
-      <div className="w-full bg-slate-900/90 border-b border-slate-800 px-4 py-3.5 flex items-center justify-between z-10 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white animate-fadeIn overflow-hidden">
+      {/* Header */}
+      <div className="w-full bg-slate-900/90 border-b border-slate-800 px-4 py-3.5 flex items-center justify-between z-20 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-[#6344F5] flex items-center justify-center text-white font-bold shadow-md shadow-[#6344F5]/30">
             <Camera className="w-4 h-4" />
           </div>
           <div>
             <h2 className="text-base font-extrabold leading-none">Live Camera Scanner</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Align barcode inside the target box</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Point camera at barcode</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {videoDevices.length > 1 && (
-            <button
-              onClick={handleSwitchCamera}
-              className="p-2 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 transition-all"
-              title="Switch Camera"
-            >
-              <SwitchCamera className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={handleToggleFacingMode}
+            className="p-2 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 transition-all flex items-center gap-1.5 text-xs font-semibold"
+            title="Switch Front/Back Camera"
+          >
+            <SwitchCamera className="w-4 h-4" />
+            <span className="hidden sm:inline">{facingMode === 'environment' ? 'Rear Cam' : 'Front Cam'}</span>
+          </button>
 
           <button
             onClick={onClose}
@@ -169,28 +162,28 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
         </div>
       </div>
 
-      {/* Camera Viewport Container */}
+      {/* Main Video Viewport */}
       <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
         <video
           ref={videoRef}
-          className="w-full h-full object-cover max-h-[85vh]"
+          autoPlay
           playsInline
           muted
+          className="w-full h-full object-cover max-h-[85vh]"
         />
 
         {/* Viewfinder Target Overlay */}
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6">
-          {/* Dimmed Background Mask */}
-          <div className="relative w-full max-w-xs aspect-[4/3] rounded-3xl border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] flex flex-col items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 z-10">
+          <div className="relative w-full max-w-xs aspect-[4/3] rounded-3xl border-2 border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] flex flex-col items-center justify-center overflow-hidden">
             
             {/* Animated Laser Scanning Line */}
-            {isScanning && !scannedResult && (
+            {isCameraActive && !scannedResult && (
               <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#6344F5] to-transparent shadow-[0_0_15px_#6344F5] animate-[bounce_2s_infinite]" />
             )}
 
             {/* Success Overlay */}
             {scannedResult && (
-              <div className="absolute inset-0 bg-[#6344F5]/90 flex flex-col items-center justify-center text-white animate-fadeIn p-4 text-center">
+              <div className="absolute inset-0 bg-[#6344F5]/90 flex flex-col items-center justify-center text-white animate-fadeIn p-4 text-center z-20">
                 <CheckCircle className="w-12 h-12 text-emerald-300 mb-2 animate-bounce" />
                 <h3 className="text-lg font-bold">Barcode Scanned!</h3>
                 <p className="font-mono text-sm bg-black/40 px-3 py-1 rounded-lg mt-1 border border-white/20">
@@ -199,26 +192,42 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
               </div>
             )}
 
-            {/* Corner Bracket Graphics */}
+            {/* Corner Bracket Details */}
             <div className="absolute top-2 left-2 w-6 h-6 border-t-4 border-l-4 border-[#6344F5] rounded-tl-xl" />
             <div className="absolute top-2 right-2 w-6 h-6 border-t-4 border-r-4 border-[#6344F5] rounded-tr-xl" />
             <div className="absolute bottom-2 left-2 w-6 h-6 border-b-4 border-l-4 border-[#6344F5] rounded-bl-xl" />
             <div className="absolute bottom-2 right-2 w-6 h-6 border-b-4 border-r-4 border-[#6344F5] rounded-br-xl" />
           </div>
 
-          {/* Subtitle instructions */}
           <div className="mt-6 text-center text-slate-300 text-xs bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700/60 shadow-lg">
             Hold steady over barcode (Costco, Target, Gym, etc.)
           </div>
         </div>
 
-        {/* Permission / Device Error Banner */}
+        {/* Permission / Device Error Screen */}
         {errorMessage && (
-          <div className="absolute inset-x-4 top-4 bg-rose-950/90 border border-rose-800 text-rose-200 p-4 rounded-2xl text-xs flex items-center gap-3 backdrop-blur-md z-20">
-            <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
-            <div>
-              <p className="font-bold">{errorMessage}</p>
-              <p className="mt-1 text-slate-300">You can also upload a photo of your card or type the number manually.</p>
+          <div className="absolute inset-0 bg-slate-950/95 z-30 flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+            <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Camera Access Required</h3>
+            <p className="text-sm text-slate-400 max-w-xs mb-6">
+              {errorMessage}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={startCamera}
+                className="px-5 py-2.5 bg-[#6344F5] hover:bg-[#5233E0] text-white font-bold text-sm rounded-xl flex items-center gap-2 shadow-lg"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Try Again</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm rounded-xl"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
