@@ -1,32 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader, BarcodeFormat } from '@zxing/library';
-import { X, Camera, SwitchCamera, AlertCircle, Sparkles, CheckCircle, RefreshCw } from 'lucide-react';
+import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library';
+import { X, Camera, SwitchCamera, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
-const mapZXingFormatToAppFormat = (formatId) => {
-  if (formatId === BarcodeFormat.UPC_A || formatId === 14 || formatId === 'upc_a') return 'UPC';
-  if (formatId === BarcodeFormat.EAN_13 || formatId === 6 || formatId === 'ean_13') return 'EAN13';
-  if (formatId === BarcodeFormat.CODE_128 || formatId === 4 || formatId === 'code_128') return 'CODE128';
-  if (formatId === BarcodeFormat.CODE_39 || formatId === 3 || formatId === 'code_39') return 'CODE39';
-  if (formatId === BarcodeFormat.EAN_8 || formatId === 7 || formatId === 'ean_8') return 'EAN8';
-  if (formatId === BarcodeFormat.QR_CODE || formatId === 11 || formatId === 'qr_code') return 'QR';
+const mapFormatToAppFormat = (fmt) => {
+  const str = String(fmt || '').toLowerCase();
+  if (str.includes('upc_a') || str.includes('upc') || fmt === BarcodeFormat.UPC_A || fmt === 14) return 'UPC';
+  if (str.includes('ean_13') || str.includes('ean13') || fmt === BarcodeFormat.EAN_13 || fmt === 6) return 'EAN13';
+  if (str.includes('code_128') || str.includes('code128') || fmt === BarcodeFormat.CODE_128 || fmt === 4) return 'CODE128';
+  if (str.includes('code_39') || str.includes('code39') || fmt === BarcodeFormat.CODE_39 || fmt === 3) return 'CODE39';
+  if (str.includes('ean_8') || str.includes('ean8') || fmt === BarcodeFormat.EAN_8 || fmt === 7) return 'EAN8';
+  if (str.includes('qr') || fmt === BarcodeFormat.QR_CODE || fmt === 11) return 'QR';
   return 'AUTO';
 };
 
 export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
   const videoRef = useRef(null);
   const mediaStreamRef = useRef(null);
-  const codeReaderRef = useRef(null);
+  const animFrameRef = useRef(null);
+  const isScanningRef = useRef(false);
 
-  const [facingMode, setFacingMode] = useState('environment'); // 'environment' or 'user'
+  const [facingMode, setFacingMode] = useState('environment');
   const [errorMessage, setErrorMessage] = useState('');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [scannedResult, setScannedResult] = useState(null);
 
   const stopCameraStream = () => {
-    if (codeReaderRef.current) {
-      try {
-        codeReaderRef.current.reset();
-      } catch (e) {}
+    isScanningRef.current = false;
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
     }
     if (mediaStreamRef.current) {
       try {
@@ -50,7 +52,6 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
         throw new Error('Camera access is not supported by your browser or requires HTTPS.');
       }
 
-      // Request stream directly from browser
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: facingMode },
@@ -66,44 +67,113 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setIsCameraActive(true);
+        isScanningRef.current = true;
 
-        // Start ZXing decoding from the active video element
-        const reader = new BrowserMultiFormatReader();
-        codeReaderRef.current = reader;
+        // Initialize ZXing MultiFormatReader with format hints
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.ITF,
+          BarcodeFormat.QR_CODE,
+        ]);
+        const zxingReader = new BrowserMultiFormatReader(hints);
 
-        reader.decodeFromVideoElement(videoRef.current, (result, err) => {
-          if (result) {
-            const text = result.getText();
-            const formatEnum = result.getBarcodeFormat();
-            const appFormat = mapZXingFormatToAppFormat(formatEnum);
-
-            // Haptic vibration feedback
-            try {
-              if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100]);
-              }
-            } catch (e) {}
-
-            setScannedResult({ text, format: appFormat });
-
-            // Stop scanner immediately on success
-            stopCameraStream();
-
-            // Return result after short animation
-            setTimeout(() => {
-              onScanSuccess({ codeNumber: text, barcodeType: appFormat });
-              onClose();
-            }, 650);
+        // Native BarcodeDetector if available in browser
+        let nativeDetector = null;
+        if ('BarcodeDetector' in window) {
+          try {
+            nativeDetector = new window.BarcodeDetector({
+              formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'itf'],
+            });
+          } catch (e) {
+            nativeDetector = null;
           }
-        });
+        }
+
+        // Offscreen canvas for frame capture fallback
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        let lastScanTime = 0;
+
+        const scanFrame = async () => {
+          if (!isScanningRef.current || !videoRef.current) return;
+
+          const now = Date.now();
+          if (now - lastScanTime > 120 && videoRef.current.readyState === 4) {
+            lastScanTime = now;
+            const video = videoRef.current;
+
+            let detectedText = null;
+            let detectedFormat = 'AUTO';
+
+            // Strategy 1: Native BarcodeDetector (Hardware Accelerated)
+            if (nativeDetector) {
+              try {
+                const barcodes = await nativeDetector.detect(video);
+                if (barcodes && barcodes.length > 0) {
+                  detectedText = barcodes[0].rawValue;
+                  detectedFormat = mapFormatToAppFormat(barcodes[0].format);
+                }
+              } catch (e) {}
+            }
+
+            // Strategy 2: Offscreen Canvas Snapshot + ZXing
+            if (!detectedText && video.videoWidth > 0 && video.videoHeight > 0) {
+              try {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const zResult = zxingReader.decodeFromCanvas(canvas);
+                if (zResult) {
+                  detectedText = zResult.getText();
+                  detectedFormat = mapFormatToAppFormat(zResult.getBarcodeFormat());
+                }
+              } catch (e) {}
+            }
+
+            // Trigger success if barcode found
+            if (detectedText) {
+              isScanningRef.current = false;
+
+              // Vibration feedback
+              try {
+                if (navigator.vibrate) {
+                  navigator.vibrate([100, 50, 100]);
+                }
+              } catch (e) {}
+
+              setScannedResult({ text: detectedText, format: detectedFormat });
+              stopCameraStream();
+
+              setTimeout(() => {
+                onScanSuccess({ codeNumber: detectedText, barcodeType: detectedFormat });
+                onClose();
+              }, 600);
+              return;
+            }
+          }
+
+          if (isScanningRef.current) {
+            animFrameRef.current = requestAnimationFrame(scanFrame);
+          }
+        };
+
+        animFrameRef.current = requestAnimationFrame(scanFrame);
       }
     } catch (err) {
       console.warn('Camera launch error:', err);
       let msg = 'Could not access camera.';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        msg = 'Camera permission denied. Please allow camera access in your browser settings to scan live.';
+        msg = 'Camera permission denied. Please allow camera access in browser settings.';
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        msg = 'No camera found on this device.';
+        msg = 'No camera device found on your device.';
       } else if (err.message) {
         msg = err.message;
       }
@@ -117,7 +187,6 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
     } else {
       stopCameraStream();
     }
-
     return () => {
       stopCameraStream();
     };
@@ -139,7 +208,7 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
           </div>
           <div>
             <h2 className="text-base font-extrabold leading-none">Live Camera Scanner</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Point camera at barcode</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Point camera directly at barcode</p>
           </div>
         </div>
 
@@ -200,7 +269,7 @@ export const CameraScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
           </div>
 
           <div className="mt-6 text-center text-slate-300 text-xs bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700/60 shadow-lg">
-            Hold steady over barcode (Costco, Target, Gym, etc.)
+            Hold steady 4-8 inches over barcode in good light
           </div>
         </div>
 
